@@ -1,6 +1,6 @@
-int redLed = 11;
-int greenLed = 10;
-int blueLed = 9;
+int redLed = 3;
+int greenLed = 5;
+int blueLed = 6;
 
 struct rgbColor {
   float r;
