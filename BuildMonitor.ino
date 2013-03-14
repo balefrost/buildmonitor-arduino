@@ -59,8 +59,9 @@ void DumpColor(const RgbColor<float> &c) {
 }
 
 RgbColor<float> goodBuild(0, 1, 0);
-RgbColor<float> dangerBuild(1, 0.5, 0);
+RgbColor<float> dangerBuild(0.9, 0.4, 0);
 RgbColor<float> badBuild(1, 0, 0);
+RgbColor<float> unknownBuild(0.2, 0.2, 1);
 
 void writeColor(const RgbColor<float> &c) {
   analogWrite(redLed, int(c.r * 255));
@@ -71,7 +72,8 @@ void writeColor(const RgbColor<float> &c) {
 enum BuildStatus {
   good,
   danger,
-  bad
+  bad,
+  unknown
 };
 
 struct BuildState {
@@ -87,6 +89,8 @@ RgbColor<float>& colorFor(BuildStatus buildStatus) {
       return dangerBuild;
     case bad:
       return badBuild;
+    case unknown:
+      return unknownBuild;
   }
 }
 
@@ -214,8 +218,8 @@ void loop() {
 
   if (state >= 0) {
     state = state - '0';
-    boolean newBuilding = state > 2;
-    BuildStatus newBuildStatus = BuildStatus(state % 3);
+    boolean newBuilding = state > 3;
+    BuildStatus newBuildStatus = BuildStatus(state % 4);
     
     if (buildState.status != newBuildStatus) {
       delete currentColorAnimation;
