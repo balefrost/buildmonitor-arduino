@@ -135,14 +135,28 @@ class LinearAnimation : public Animation<T> {
 template <typename T>
 class PingPongAnimation : public Animation<T> {
   public:
+    PingPongAnimation() : startTime(0) { }
+
     virtual T update(unsigned long time) {
       float progress = fmod(float(time - startTime) / cycleTime, 1.0f);
       float value = 1.0 - (cos(progress * 2 * M_PI) + 1.0) / 2.0;
       return startValue + value * (otherValue - startValue);
     }
     
-    void reinitialize(unsigned long startTime, unsigned long cycleTime, T startValue, T otherValue) {
-      this->startTime = startTime;
+    void reinitializeWithTime(unsigned long startTime, unsigned long cycleTime, T startValue, T otherValue, unsigned long now) {
+      float progress = fmod(float(now - this->startTime) / this->cycleTime, 1.0f);
+      unsigned long timeOffset = progress * cycleTime;
+      this->startTime = startTime - timeOffset;
+      this->cycleTime = cycleTime;
+      this->startValue = startValue;
+      this->otherValue = otherValue;
+    }
+
+    void reinitializeWithValue(unsigned long startTime, unsigned long cycleTime, T startValue, T otherValue, T currentValue) {
+      float value = (currentValue - this->startValue) / (this->otherValue - this->startValue);
+      float progress = acos((1 - value) * 2 - 1) / (2 * M_PI);
+      unsigned long timeOffset = progress * cycleTime;
+      this->startTime = startTime - timeOffset;
       this->cycleTime = cycleTime;
       this->startValue = startValue;
       this->otherValue = otherValue;
@@ -196,7 +210,7 @@ void setup() {
   unsigned long now = millis();
 
   lightnessConstant.reinitialize(1);
-  lightnessPingPong.reinitialize(now, lightnessSearchPingPongCycleTime, 1, 0.05);
+  lightnessPingPong.reinitializeWithTime(now, lightnessSearchPingPongCycleTime, 1, 0.05, now);
   colorConstant.reinitialize(unknownBuild);
 
   currentColorAnimation = &colorConstant;
@@ -228,15 +242,20 @@ void loop() {
       buildState.status = newBuildStatus;
     }
     
-    if (newBuilding) {
-      unsigned long cycleTime = newBuildStatus == unknown ? lightnessSearchPingPongCycleTime : lightnessBuildPingPongCycleTime;
-      lightnessPingPong.reinitialize(now, cycleTime, 1, 0.05);
-      currentLightnessAnimation = &lightnessPingPong;  //TODO: consider current lightness
-      buildState.building = true;
-    } else {
+    if (!newBuilding) {
       lightnessTransition.reinitialize(now, lightnessTransitionDuration, currentLightness, 1);
       currentLightnessAnimation = &lightnessTransition;
       buildState.building = false;
+    } else if (newBuilding && !buildState.building) {
+      unsigned long cycleTime = newBuildStatus == unknown ? lightnessSearchPingPongCycleTime : lightnessBuildPingPongCycleTime;
+      lightnessPingPong.reinitializeWithValue(now, cycleTime, 1, 0.05, currentLightness);
+      currentLightnessAnimation = &lightnessPingPong;
+      buildState.building = true;
+    } else {
+      unsigned long cycleTime = newBuildStatus == unknown ? lightnessSearchPingPongCycleTime : lightnessBuildPingPongCycleTime;
+      lightnessPingPong.reinitializeWithTime(now, cycleTime, 1, 0.05, now);
+      currentLightnessAnimation = &lightnessPingPong;
+      buildState.building = true;
     }
   }
   
