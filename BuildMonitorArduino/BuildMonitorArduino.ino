@@ -104,12 +104,7 @@ class Animation {
 template <typename T>
 class LinearAnimation : public Animation<T> {
   public:
-    LinearAnimation(T startValue, unsigned long startTime, T targetValue, unsigned long duration): 
-      startValue(startValue),
-      startTime(startTime),
-      targetValue(targetValue),
-      targetTime(startTime + duration),
-      duration(duration) { }
+    LinearAnimation(unsigned long duration): duration(duration) { }
       
     virtual T update(unsigned long time) {
       if (time >= targetTime) {
@@ -124,6 +119,13 @@ class LinearAnimation : public Animation<T> {
       return time >= targetTime;
     }
     
+    void reinitialize(T startValue, unsigned long startTime, T targetValue) {
+      this->startValue = startValue;
+      this->startTime = startTime;
+      this->targetValue = targetValue;
+      this->targetTime = startTime + duration;
+    }
+    
   private:
     T startValue;
     unsigned long startTime;
@@ -135,9 +137,8 @@ class LinearAnimation : public Animation<T> {
 template <typename T>
 class PingPongAnimation : public Animation<T> {
   public:
-    PingPongAnimation(T startValue, unsigned long startTime, T otherValue, unsigned long cycleTime) :
+    PingPongAnimation(T startValue, T otherValue, unsigned long cycleTime) : 
       startValue(startValue),
-      startTime(startTime),
       otherValue(otherValue),
       cycleTime(cycleTime) { }
   
@@ -150,6 +151,11 @@ class PingPongAnimation : public Animation<T> {
     virtual boolean complete(unsigned long time) {
       return false;
     }
+
+    void reinitialize(unsigned long startTime) {
+      this->startTime = startTime;
+    }
+
   private:
     T startValue;
     unsigned long startTime;
@@ -160,7 +166,7 @@ class PingPongAnimation : public Animation<T> {
 template <typename T>
 class ConstantAnimation : public Animation<T> {
   public:
-    ConstantAnimation(T value): value(value) { }
+    ConstantAnimation() { }
 
     virtual T update(unsigned long time) {
       return value;
@@ -170,23 +176,41 @@ class ConstantAnimation : public Animation<T> {
       return true;
     }
 
+    void reinitialize(T value) {
+      this->value = value;
+    }
+
   private:
     T value;
 };
 
-BuildState buildState;
+BuildState buildState = { unknown, true };
 
-Animation< RgbColor<float> > *currentColorAnimation = new ConstantAnimation< RgbColor<float> >(goodBuild);
-boolean currentColorAnimationIsStable = true;
+PingPongAnimation<float> lightnessBuildingAnimation(1, 0.05, 1000);
+ConstantAnimation<float> lightnessFullBright;
+LinearAnimation<float> lightnessTransition(1000);
 
-Animation<float> *currentLightnessAnimation = new ConstantAnimation<float>(1.0);
-boolean currentLightnessAnimationIsStable = true;
+ConstantAnimation< RgbColor<float> > colorConstant;
+LinearAnimation< RgbColor<float> > colorTransition(1000);
+
+Animation< RgbColor<float> > *currentColorAnimation = &colorConstant;
+boolean currentColorAnimationIsStable = false;
+
+Animation<float> *currentLightnessAnimation = &lightnessBuildingAnimation;
+boolean currentLightnessAnimationIsStable = false;
 
 void setup() {
   Serial.begin(9600);
   pinMode(redLed, OUTPUT);     
   pinMode(greenLed, OUTPUT);     
-  pinMode(blueLed, OUTPUT);     
+  pinMode(blueLed, OUTPUT);
+
+  unsigned long now = millis();
+
+  colorConstant.reinitialize(unknownBuild);
+  lightnessBuildingAnimation.reinitialize(now);
+
+  lightnessFullBright.reinitialize(1);
 }
 
 void loop() {
@@ -194,15 +218,14 @@ void loop() {
   
   if (!currentColorAnimationIsStable && currentColorAnimation->complete(now)) {
     SerialFormat("Switching to constant color animation\n");
-    delete currentColorAnimation;
-    currentColorAnimation = new ConstantAnimation< RgbColor<float> >(colorFor(buildState.status));
+    colorConstant.reinitialize(colorFor(buildState.status));
+    currentColorAnimation = &colorConstant;
     currentColorAnimationIsStable = true;
   }
   
   if (!currentLightnessAnimationIsStable && currentLightnessAnimation->complete(now)) {
     SerialFormat("Switching to constant lightness animation\n");
-    delete currentLightnessAnimation;
-    currentLightnessAnimation = new ConstantAnimation<float>(1);
+    currentLightnessAnimation = &lightnessFullBright;
     currentLightnessAnimationIsStable = true;
   }
   
@@ -222,24 +245,24 @@ void loop() {
     BuildStatus newBuildStatus = BuildStatus(state % 4);
     
     if (buildState.status != newBuildStatus) {
-      delete currentColorAnimation;
       RgbColor<float> targetColor = colorFor(newBuildStatus);
       SerialFormat("Switching to linear color animation\n");
-      currentColorAnimation = new LinearAnimation< RgbColor<float> >(currentColor, now, targetColor, 1000);
+      colorTransition.reinitialize(currentColor, now, targetColor);
+      currentColorAnimation = &colorTransition;
       currentColorAnimationIsStable = false;
       buildState.status = newBuildStatus;
     }
     
     if (!buildState.building && newBuilding) {
       SerialFormat("Switching to ping-pong lightness animation\n");
-      delete currentLightnessAnimation;
-      currentLightnessAnimation = new PingPongAnimation<float>(1, now, 0.05, 1000);  //TODO: consider current lightness
+      lightnessBuildingAnimation.reinitialize(now);
+      currentLightnessAnimation = &lightnessBuildingAnimation;  //TODO: consider current lightness
       currentLightnessAnimationIsStable = false;
       buildState.building = true;
     } else if (buildState.building && !newBuilding) {
       SerialFormat("Switching to linear lightness animation\n");
-      delete currentLightnessAnimation;
-      currentLightnessAnimation = new LinearAnimation<float>(currentLightness, now, 1, 1000);
+      lightnessTransition.reinitialize(currentLightness, now, 1);
+      currentLightnessAnimation = &lightnessTransition;
       currentLightnessAnimationIsStable = false;
       buildState.building = false;
     }
