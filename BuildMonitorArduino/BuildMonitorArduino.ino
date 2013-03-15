@@ -191,6 +191,8 @@ const unsigned long lightnessBuildPingPongCycleTime = 1000;
 const unsigned long lightnessTransitionDuration = 500;
 const unsigned long colorTransitionDuration = 500;
 
+const unsigned long idleTimeout = 60 * 1000;
+
 ConstantAnimation<float> lightnessConstant;
 LinearAnimation<float> lightnessTransition;
 PingPongAnimation<float> lightnessPingPong;
@@ -200,6 +202,8 @@ LinearAnimation< RgbColor<float> > colorTransition;
 
 Animation< RgbColor<float> > *currentColorAnimation;
 Animation<float> *currentLightnessAnimation;
+
+unsigned long timeOfLastInput;
 
 void setup() {
   Serial.begin(9600);
@@ -215,6 +219,8 @@ void setup() {
 
   currentColorAnimation = &colorConstant;
   currentLightnessAnimation = &lightnessPingPong;
+
+  timeOfLastInput = now;
 }
 
 void loop() {
@@ -231,6 +237,8 @@ void loop() {
   }
 
   if (state >= 0) {
+    timeOfLastInput = now;
+
     state = state - '0';
     boolean newBuilding = state > 3;
     BuildStatus newBuildStatus = BuildStatus(state % 4);
@@ -246,17 +254,31 @@ void loop() {
       lightnessTransition.reinitialize(now, lightnessTransitionDuration, currentLightness, 1);
       currentLightnessAnimation = &lightnessTransition;
       buildState.building = false;
-    } else if (newBuilding && !buildState.building) {
-      unsigned long cycleTime = newBuildStatus == unknown ? lightnessSearchPingPongCycleTime : lightnessBuildPingPongCycleTime;
-      lightnessPingPong.reinitializeWithValue(now, cycleTime, 1, 0.05, currentLightness);
-      currentLightnessAnimation = &lightnessPingPong;
-      buildState.building = true;
     } else {
       unsigned long cycleTime = newBuildStatus == unknown ? lightnessSearchPingPongCycleTime : lightnessBuildPingPongCycleTime;
-      lightnessPingPong.reinitializeWithTime(now, cycleTime, 1, 0.05, now);
+
+      if (newBuilding && !buildState.building) {
+        lightnessPingPong.reinitializeWithValue(now, cycleTime, 1, 0.05, currentLightness);
+      } else {
+        lightnessPingPong.reinitializeWithTime(now, cycleTime, 1, 0.05, now);
+      }
+
       currentLightnessAnimation = &lightnessPingPong;
       buildState.building = true;
     }
+  } else if (now - timeOfLastInput > idleTimeout && !(buildState.status == unknown && buildState.building)) {
+    colorTransition.reinitialize(now, colorTransitionDuration, currentColor, unknownBuild);
+    currentColorAnimation = &colorTransition;
+    buildState.status = unknown;
+
+    if (buildState.building) {
+      lightnessPingPong.reinitializeWithTime(now, lightnessSearchPingPongCycleTime, 1, 0.05, now);
+    } else {
+      lightnessPingPong.reinitializeWithValue(now, lightnessSearchPingPongCycleTime, 1, 0.05, currentLightness);
+    }
+
+    currentLightnessAnimation = &lightnessPingPong;
+    buildState.building = true;
   }
   
   writeColor(currentColor * currentLightness);
