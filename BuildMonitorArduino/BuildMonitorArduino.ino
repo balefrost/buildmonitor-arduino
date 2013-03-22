@@ -11,9 +11,9 @@ void SerialFormat(const char *fmt, ...) {
   va_end(argp);
 }
 
-int redLed = 3;
+int redLed = 6;
 int greenLed = 5;
-int blueLed = 6;
+int blueLed = 3;
 
 template <typename T>
 class RgbColor {
@@ -59,7 +59,7 @@ void DumpColor(const RgbColor<float> &c) {
 }
 
 RgbColor<float> goodBuild(0, 1, 0);
-RgbColor<float> dangerBuild(0.9, 0.4, 0);
+RgbColor<float> dangerBuild(0.8, 0.5, 0);
 RgbColor<float> badBuild(1, 0, 0);
 RgbColor<float> unknownBuild(0.2, 0.2, 1);
 
