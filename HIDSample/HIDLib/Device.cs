@@ -1,37 +1,38 @@
 ﻿using System;
 using System.IO;
+using HIDLib.Win32USB;
 using Microsoft.Win32.SafeHandles;
 
-namespace HIDSample
+namespace HIDLib
 {
     public class Device : IDisposable
     {
-        private readonly SafeFileHandle deviceHandle;
         public readonly FileStream InputStream;
         public readonly FileStream OutputStream;
+        private readonly SafeFileHandle deviceHandle;
         private bool disposed;
 
         public Device(string path)
         {
             bool useOverlappedIo = false;
-            deviceHandle = Win32Usb.CreateFile(path,
-                                               Win32Usb.GENERIC_READ | Win32Usb.GENERIC_WRITE,
-                                               0, IntPtr.Zero, Win32Usb.OPEN_EXISTING,
-                                               useOverlappedIo ? Win32Usb.FILE_FLAG_OVERLAPPED : 0,
-                                               IntPtr.Zero);
+            deviceHandle = USB.CreateFile(path,
+                                          USB.GENERIC_READ | USB.GENERIC_WRITE,
+                                          0, IntPtr.Zero, USB.OPEN_EXISTING,
+                                          useOverlappedIo ? USB.FILE_FLAG_OVERLAPPED : 0,
+                                          IntPtr.Zero);
             if (deviceHandle.IsInvalid)
             {
                 throw new Exception("Invalid file handle");
             }
 
             IntPtr preparsedData;
-            if (!Win32Usb.HidD_GetPreparsedData(deviceHandle, out preparsedData))
+            if (!USB.HidD_GetPreparsedData(deviceHandle, out preparsedData))
             {
                 throw new Exception("Could not read from device");
             }
 
             HidCaps hidCaps;
-            Win32Usb.HidP_GetCaps(preparsedData, out hidCaps);
+            USB.HidP_GetCaps(preparsedData, out hidCaps);
 
             // extract the device capabilities from the internal buffer
             short inputReportLength = hidCaps.InputReportByteLength;

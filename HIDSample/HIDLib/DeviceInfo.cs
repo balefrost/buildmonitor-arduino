@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace HIDSample
+namespace HIDLib
 {
     public class DeviceInfo
     {

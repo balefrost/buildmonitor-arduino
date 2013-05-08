@@ -1,4 +1,6 @@
 ﻿using System;
+using HIDLib;
+using HIDLib.Win32USB;
 
 namespace HIDSample
 {
@@ -10,7 +12,7 @@ namespace HIDSample
         private static void Main(string[] args)
         {
             string strSearch = string.Format("vid_{0:x4}&pid_{1:x4}", VendorId, ProductId);
-            Guid hidGuid = Win32Usb.HIDGuid;
+            Guid hidGuid = USB.HIDGuid;
             Console.WriteLine(hidGuid);
 
             using (DeviceInfoSet infoSet = DeviceInfoSet.GetByClass(hidGuid))

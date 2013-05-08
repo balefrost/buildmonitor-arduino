@@ -2,14 +2,15 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using HIDLib.Win32USB;
 
-namespace HIDSample
+namespace HIDLib
 {
     public class DeviceInfoSet : IDisposable, IEnumerable<DeviceInfo>
     {
         private readonly Guid classGuid;
-        private IntPtr handle;
         private bool disposed;
+        private IntPtr handle;
 
         private DeviceInfoSet(IntPtr handle, Guid classGuid)
         {
@@ -44,7 +45,7 @@ namespace HIDSample
             if (disposed)
                 return;
 
-            Win32Usb.SetupDiDestroyDeviceInfoList(handle);
+            USB.SetupDiDestroyDeviceInfoList(handle);
             handle = IntPtr.Zero;
 
             disposed = true;
@@ -52,8 +53,8 @@ namespace HIDSample
 
         public static DeviceInfoSet GetByClass(Guid classGuid)
         {
-            IntPtr handle = Win32Usb.SetupDiGetClassDevs(ref classGuid, null, IntPtr.Zero,
-                                                         Win32Usb.DIGCF_DEVICEINTERFACE | Win32Usb.DIGCF_PRESENT);
+            IntPtr handle = USB.SetupDiGetClassDevs(ref classGuid, null, IntPtr.Zero,
+                                                    USB.DIGCF_DEVICEINTERFACE | USB.DIGCF_PRESENT);
             if (handle != IntPtr.Zero)
             {
                 return new DeviceInfoSet(handle, classGuid);
@@ -81,8 +82,8 @@ namespace HIDSample
                 Guid classGuid = deviceInfoSet.classGuid;
                 var deviceInterfaceData = new DeviceInterfaceData();
                 deviceInterfaceData.Size = Marshal.SizeOf(deviceInterfaceData);
-                if (Win32Usb.SetupDiEnumDeviceInterfaces(deviceInfoSet.handle, 0, ref classGuid, nextIndex,
-                                                         ref deviceInterfaceData))
+                if (USB.SetupDiEnumDeviceInterfaces(deviceInfoSet.handle, 0, ref classGuid, nextIndex,
+                                                    ref deviceInterfaceData))
                 {
                     string path = GetDevicePath(deviceInfoSet.handle, ref deviceInterfaceData);
                     current = new DeviceInfo(deviceInterfaceData.Flags, deviceInterfaceData.InterfaceClassGuid, path);
@@ -111,13 +112,13 @@ namespace HIDSample
             private static string GetDevicePath(IntPtr deviceInfoSetHandle, ref DeviceInterfaceData deviceInterfaceData)
             {
                 uint nRequiredSize = 0;
-                Win32Usb.SetupDiGetDeviceInterfaceDetail(deviceInfoSetHandle, ref deviceInterfaceData, IntPtr.Zero, 0,
-                                                         ref nRequiredSize, IntPtr.Zero);
+                USB.SetupDiGetDeviceInterfaceDetail(deviceInfoSetHandle, ref deviceInterfaceData, IntPtr.Zero, 0,
+                                                    ref nRequiredSize, IntPtr.Zero);
 
                 var oDetail = new DeviceInterfaceDetailData {Size = 5};
 
-                if (Win32Usb.SetupDiGetDeviceInterfaceDetail(deviceInfoSetHandle, ref deviceInterfaceData, ref oDetail,
-                                                             nRequiredSize, ref nRequiredSize, IntPtr.Zero))
+                if (USB.SetupDiGetDeviceInterfaceDetail(deviceInfoSetHandle, ref deviceInterfaceData, ref oDetail,
+                                                        nRequiredSize, ref nRequiredSize, IntPtr.Zero))
                 {
                     return oDetail.DevicePath;
                 }

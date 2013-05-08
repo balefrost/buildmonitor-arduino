@@ -2,7 +2,7 @@
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 
-namespace HIDSample
+namespace HIDLib.Win32USB
 {
     /// <summary>
     ///     Used when registering a window to receive messages about devices added or removed from the system.
@@ -84,7 +84,7 @@ namespace HIDSample
     /// <summary>
     ///     Class that wraps USB API calls and structures
     /// </summary>
-    public class Win32Usb
+    public class USB
     {
         /// <summary>Windows message sent when a device is inserted or removed</summary>
         public const int WM_DEVICECHANGE = 0x0219;
